@@ -21,6 +21,7 @@ Inspired directly by the Carnivore art projects of the early 2000s, and by an ea
 - [x] Haiku extraction engine — real syllable counting (pyphen-based) and multi-author word splicing, see `haiku_engine/`
 - [x] Sonification layer — ambient drone tied to traffic volume, per-capture tones from a text hash, haiku triggers a 3-note arpeggio (see `visualizer-demo.html`, previewable offline via `sonification/render_demo.py`)
 - [x] Real Jetstream firehose consumer — always-on, filtered to `app.bsky.feed.post` creates (+ optional language filter), writing to MariaDB (see `firehose/`). Not yet deployed to the server.
+- [ ] Moderation — deliberately stubbed as a no-op (`firehose/moderation.py`) for now, so the piece can be seen running against real, unfiltered traffic before deciding what (if anything) to filter.
 - [ ] PHP front end serving the capture log + visualizer from live DB data (currently the visualizer still runs on a scripted sample feed)
 - [ ] Server + DNS: Apache vhost on the Debian box, A record for `overheard.vejadu.xyz`
 
@@ -36,6 +37,7 @@ Inspired directly by the Carnivore art projects of the early 2000s, and by an ea
   - `consumer.py` — connects to Jetstream, feeds post text into a shared `HaikuAssembler`, writes fragments/haiku to MariaDB. Resumes from its last cursor on restart.
   - `config.py` — reads DB/Jetstream settings from the environment; see `.env.example`.
   - `schema.sql` — `fragments`, `haiku`, `consumer_state` tables; includes a suggested retention cron line.
+  - `moderation.py` — the one moderation checkpoint in the pipeline; currently a deliberate no-op.
 - `deploy/overheard-listener.service` — systemd unit for running `consumer.py` as an always-on background service.
 
 ## Deploying the listener

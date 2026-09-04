@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "haiku_engine"))
 from assembler import HaikuAssembler  # noqa: E402
 
 import config  # noqa: E402
+import moderation  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("overheard.consumer")
@@ -98,6 +99,9 @@ def extract_post(msg):
         langs = record.get("langs") or []
         if langs and config.LANG_FILTER not in langs:
             return None
+
+    if not moderation.is_allowed(text):
+        return None
 
     did = msg.get("did", "")
     rkey = commit.get("rkey", "")
