@@ -15,11 +15,12 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 
-# Nothing here needs elevated privileges or network listen sockets.
+# Nothing here needs elevated privileges, network listen sockets, or
+# local disk writes — all state goes to MariaDB over the network, so
+# the whole filesystem can stay read-only for this service.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/opt/overheard
 
 [Install]
 WantedBy=multi-user.target
