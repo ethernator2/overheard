@@ -322,7 +322,7 @@ canvas#traffic{
       <div class="status-item"><span class="dot"></span>live feed</div>
       <div class="status-item metric">packets/s <strong id="mPps">0</strong></div>
       <div class="status-item metric">captured <strong id="mCap"><?= (int) $totalFragments ?></strong></div>
-      <div class="status-item metric">extracted <strong id="mExt"><?= (int) $totalHaiku ?></strong></div>
+      <div class="status-item metric">found <strong id="mExt"><?= (int) $totalHaiku ?></strong></div>
       <div class="status-item">case <?= htmlspecialchars($caseId, ENT_QUOTES) ?></div>
       <button type="button" class="audio-toggle" id="audioToggle" aria-pressed="false">
         <span class="dot"></span><span id="audioToggleLabel">engage audio monitor</span>
@@ -339,7 +339,7 @@ canvas#traffic{
     <div class="log-pane">
       <div class="log-head">
         <div class="pane-label"><span>capture log</span><b id="logCount"><?= (int) $totalFragments ?></b></div>
-        <p>fragments pulled from the Bluesky firehose. every so often, words from several unrelated posts settle into 5-7-5 and get pulled out.</p>
+        <p>fragments pulled from the Bluesky firehose. every so often, words from several unrelated posts settle into a found haiku.</p>
       </div>
       <div class="log-body" id="logBody"></div>
     </div>
@@ -487,7 +487,7 @@ var CURSOR = { fragment: <?= (int) $sinceFragment ?>, haiku: <?= (int) $sinceHai
     var body = document.createElement('div');
 
     if(kind === 'haiku'){
-      tag.textContent = 'extract · 5-7-5';
+      tag.textContent = 'found haiku · 5-7-5';
       body.className = 'lines';
       body.textContent = content.join('\n');
     } else {

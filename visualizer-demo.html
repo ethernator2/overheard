@@ -310,7 +310,7 @@ canvas#traffic{
       <div class="status-item"><span class="dot"></span>simulated feed</div>
       <div class="status-item metric">packets/s <strong id="mPps">0</strong></div>
       <div class="status-item metric">captured <strong id="mCap">0</strong></div>
-      <div class="status-item metric">extracted <strong id="mExt">0</strong></div>
+      <div class="status-item metric">found <strong id="mExt">0</strong></div>
       <div class="status-item">case vjd-2026-0904</div>
       <button type="button" class="audio-toggle" id="audioToggle" aria-pressed="false">
         <span class="dot"></span><span id="audioToggleLabel">engage audio monitor</span>
@@ -327,7 +327,7 @@ canvas#traffic{
     <div class="log-pane">
       <div class="log-head">
         <div class="pane-label"><span>capture log</span><b id="logCount">0</b></div>
-        <p>fragments pulled from the stream. every so often three lines settle into 5-7-5 and get pulled out.</p>
+        <p>fragments pulled from the stream. every so often three lines settle into a found haiku.</p>
       </div>
       <div class="log-body" id="logBody"></div>
     </div>
@@ -506,7 +506,7 @@ canvas#traffic{
     var body = document.createElement('div');
 
     if(kind === 'haiku'){
-      tag.textContent = 'extract · 5-7-5';
+      tag.textContent = 'found haiku · 5-7-5';
       body.className = 'lines';
       body.textContent = content.join('\n');
       extCount++;
