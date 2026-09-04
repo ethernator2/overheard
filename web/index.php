@@ -244,7 +244,24 @@ canvas#traffic{
 }
 .log-head{ padding: 16px 18px 10px; border-bottom: 1px solid var(--line); }
 .log-head .pane-label{ margin-bottom:4px; }
-.log-head p{ margin:0; font-size: 0.72rem; color: var(--ink-dim2); line-height:1.5; }
+.log-head p{ margin:0 0 10px; font-size: 0.72rem; color: var(--ink-dim2); line-height:1.5; }
+
+.log-filter-toggle{
+  font-family: inherit;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim2);
+  background: transparent;
+  border: 1px solid var(--phosphor-dim);
+  border-radius: 3px;
+  padding: 4px 9px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.log-filter-toggle:hover{ border-color: var(--phosphor); color: var(--ink); }
+.log-filter-toggle:focus-visible{ outline: 2px solid var(--phosphor); outline-offset: 2px; }
+.log-filter-toggle[aria-pressed="true"]{ border-color: var(--amber); color: var(--amber); }
 
 .log-body{
   flex:1;
@@ -256,6 +273,30 @@ canvas#traffic{
 }
 .log-body::-webkit-scrollbar{ width:8px; }
 .log-body::-webkit-scrollbar-thumb{ background: var(--line); border-radius:4px; }
+
+/* Default view: found haiku only. Fragments stay in the DOM (so
+   switching to "view all" is instant) but hidden — a pure CSS filter,
+   independent of how entries actually got there (live poll or the
+   "load earlier haiku" history fetch). */
+.log-body.haiku-only .entry:not(.haiku){ display:none; }
+.log-body.haiku-only .entry.empty:not([hidden]){ display:block; }
+
+.log-load-more{
+  font-family: inherit;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim2);
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: 3px;
+  padding: 8px 10px;
+  margin: 4px 0 8px;
+  cursor: pointer;
+  text-align: center;
+}
+.log-load-more:hover{ border-color: var(--phosphor-dim); color: var(--ink); }
+.log-load-more[disabled]{ opacity: 0.5; cursor: default; }
 
 .entry{
   font-size: 0.78rem;
@@ -339,9 +380,10 @@ canvas#traffic{
     <div class="log-pane">
       <div class="log-head">
         <div class="pane-label"><span>capture log</span><b id="logCount"><?= (int) $totalFragments ?></b></div>
-        <p>fragments pulled from the Bluesky firehose. every so often, words from several unrelated posts settle into a found haiku.</p>
+        <p>words from several unrelated posts, settled into found haiku. the raw fragments they're spliced from are just noise underneath.</p>
+        <button type="button" class="log-filter-toggle" id="haikuFilterToggle" aria-pressed="true">view all</button>
       </div>
-      <div class="log-body" id="logBody"></div>
+      <div class="log-body haiku-only" id="logBody"></div>
     </div>
   </div>
 
@@ -479,9 +521,10 @@ var CURSOR = { fragment: <?= (int) $sinceFragment ?>, haiku: <?= (int) $sinceHai
   var mPps = document.getElementById('mPps');
   var MAX_ENTRIES = 40;
 
-  function addEntry(kind, content){
+  function buildEntryEl(kind, content, id){
     var el = document.createElement('div');
     el.className = 'entry' + (kind === 'haiku' ? ' haiku' : '');
+    if(kind === 'haiku' && id){ el.dataset.haikuId = id; }
     var tag = document.createElement('span');
     tag.className = 'tag';
     var body = document.createElement('div');
@@ -497,18 +540,114 @@ var CURSOR = { fragment: <?= (int) $sinceFragment ?>, haiku: <?= (int) $sinceHai
 
     el.appendChild(tag);
     el.appendChild(body);
+    return el;
+  }
+
+  function addEntry(kind, content, id){
+    var el = buildEntryEl(kind, content, id);
     logBody.insertBefore(el, logBody.firstChild);
 
-    while(logBody.children.length > MAX_ENTRIES){
+    // Skip trimming while browsing haiku-only history — the user asked
+    // for more, an abrupt prune mid-browse would be a bad surprise.
+    // The live "all" view still stays bounded as before.
+    while(!haikuOnly && logBody.children.length > MAX_ENTRIES){
       logBody.removeChild(logBody.lastChild);
     }
   }
+
+  // ---------- found-haiku-only filter + history paging ----------
+  var haikuFilterBtn = document.getElementById('haikuFilterToggle');
+  var haikuOnly = true;
+  var haikuOldestId = null;  // smallest loaded haiku id, for paging further back
+  var haikuHasMore = true;
+  var haikuLoading = false;
+
+  var loadMoreBtn = document.createElement('button');
+  loadMoreBtn.type = 'button';
+  loadMoreBtn.className = 'log-load-more';
+  loadMoreBtn.textContent = 'load earlier haiku';
+  loadMoreBtn.hidden = true;
+  loadMoreBtn.addEventListener('click', loadOlderHaiku);
+
+  function appendHistoryEntry(evt){
+    var el = buildEntryEl('haiku', evt.lines, evt.id);
+    logBody.insertBefore(el, logBody.contains(loadMoreBtn) ? loadMoreBtn : null);
+  }
+
+  var haikuEmptyMsg = document.createElement('div');
+  haikuEmptyMsg.className = 'entry empty';
+  haikuEmptyMsg.textContent = 'no haiku found yet — check back shortly, or view all captures';
+  haikuEmptyMsg.hidden = true;
+
+  function updateHaikuEmptyState(){
+    if(!haikuOnly){ haikuEmptyMsg.hidden = true; return; }
+    var hasHaiku = !!logBody.querySelector('.entry.haiku');
+    if(!logBody.contains(haikuEmptyMsg)) logBody.appendChild(haikuEmptyMsg);
+    haikuEmptyMsg.hidden = hasHaiku;
+  }
+
+  function loadOlderHaiku(){
+    if(haikuLoading || !haikuHasMore) return;
+    haikuLoading = true;
+    loadMoreBtn.disabled = true;
+    loadMoreBtn.textContent = 'loading…';
+
+    var url = 'haiku.php?limit=20' + (haikuOldestId !== null ? '&before=' + haikuOldestId : '');
+    fetch(url).then(function(res){ return res.json(); }).then(function(data){
+      data.events.forEach(function(evt){
+        appendHistoryEntry(evt);
+        haikuOldestId = evt.id;
+      });
+      haikuHasMore = !!data.next_before;
+      loadMoreBtn.hidden = !haikuHasMore;
+      loadMoreBtn.textContent = 'load earlier haiku';
+      updateHaikuEmptyState();
+    }).catch(function(err){
+      console.error('haiku history load failed', err);
+      loadMoreBtn.textContent = 'load earlier haiku — try again';
+    }).finally(function(){
+      haikuLoading = false;
+      loadMoreBtn.disabled = false;
+    });
+  }
+
+  function setHaikuOnly(on){
+    haikuOnly = on;
+    logBody.classList.toggle('haiku-only', haikuOnly);
+    haikuFilterBtn.setAttribute('aria-pressed', haikuOnly ? 'true' : 'false');
+    haikuFilterBtn.textContent = haikuOnly ? 'view all' : 'found haiku only';
+
+    if(!haikuOnly){
+      loadMoreBtn.hidden = true;
+      return;
+    }
+
+    if(!logBody.contains(loadMoreBtn)) logBody.appendChild(loadMoreBtn);
+
+    if(haikuOldestId === null){
+      // First time in haiku-only mode: seed the "before" cursor from
+      // whatever haiku are already on screen (live poll or the
+      // server-rendered initial seed), so the first history fetch
+      // continues seamlessly instead of re-fetching duplicates.
+      var seen = logBody.querySelectorAll('.entry.haiku[data-haiku-id]');
+      var ids = Array.prototype.map.call(seen, function(el){
+        return parseInt(el.getAttribute('data-haiku-id'), 10);
+      }).filter(function(n){ return !isNaN(n); });
+      haikuOldestId = ids.length ? Math.min.apply(null, ids) : null;
+      loadOlderHaiku();
+    } else {
+      loadMoreBtn.hidden = !haikuHasMore;
+    }
+    updateHaikuEmptyState();
+  }
+
+  haikuFilterBtn.addEventListener('click', function(){ setHaikuOnly(!haikuOnly); });
 
   var tickEvents = [];
 
   function renderEvent(evt, isLive){
     if(evt.kind === 'haiku'){
-      addEntry('haiku', evt.lines);
+      addEntry('haiku', evt.lines, evt.id);
       if(isLive){
         // Bigger bursts for haiku spliced from more distinct posts —
         // the visual payoff should track how many strangers' words
@@ -519,7 +658,7 @@ var CURSOR = { fragment: <?= (int) $sinceFragment ?>, haiku: <?= (int) $sinceHai
         Audio_.haikuArpeggio(evt.lines);
       }
     } else {
-      addEntry('text', evt.text);
+      addEntry('text', evt.text, evt.id);
       if(isLive){
         var len = (evt.text || '').length;
         pulse(0.22 + Math.min(0.4, len / 260), '#6fe6a3');
@@ -527,6 +666,7 @@ var CURSOR = { fragment: <?= (int) $sinceFragment ?>, haiku: <?= (int) $sinceHai
       }
     }
     if(isLive) tickEvents.push(Date.now());
+    if(isLive && evt.kind === 'haiku') updateHaikuEmptyState();
   }
 
   if(INITIAL_EVENTS.length === 0){
@@ -537,6 +677,12 @@ var CURSOR = { fragment: <?= (int) $sinceFragment ?>, haiku: <?= (int) $sinceHai
   } else {
     INITIAL_EVENTS.forEach(function(evt){ renderEvent(evt, false); });
   }
+
+  // Found-haiku-only is the default view (see log-body's server-rendered
+  // "haiku-only" class) — this call seeds the history cursor from what's
+  // already on screen and fetches further back, so it arrives populated
+  // rather than waiting on a click.
+  setHaikuOnly(true);
 
   setInterval(function(){
     var now = Date.now();

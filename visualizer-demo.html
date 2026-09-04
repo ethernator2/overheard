@@ -224,11 +224,28 @@ canvas#traffic{
 }
 .log-head .pane-label{ margin-bottom:4px; }
 .log-head p{
-  margin:0;
+  margin:0 0 10px;
   font-size: 0.72rem;
   color: var(--ink-dim2);
   line-height:1.5;
 }
+
+.log-filter-toggle{
+  font-family: inherit;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim2);
+  background: transparent;
+  border: 1px solid var(--phosphor-dim);
+  border-radius: 3px;
+  padding: 4px 9px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.log-filter-toggle:hover{ border-color: var(--phosphor); color: var(--ink); }
+.log-filter-toggle:focus-visible{ outline: 2px solid var(--phosphor); outline-offset: 2px; }
+.log-filter-toggle[aria-pressed="true"]{ border-color: var(--amber); color: var(--amber); }
 
 .log-body{
   flex:1;
@@ -240,6 +257,11 @@ canvas#traffic{
 }
 .log-body::-webkit-scrollbar{ width:8px; }
 .log-body::-webkit-scrollbar-thumb{ background: var(--line); border-radius:4px; }
+
+/* Default view: found haiku only — this is a scripted demo feed with
+   no real archive to page back through (see web/ for that), so it's
+   just a CSS filter here, not the full history-paging feature. */
+.log-body.haiku-only .entry:not(.haiku){ display:none; }
 
 .entry{
   font-size: 0.78rem;
@@ -327,9 +349,10 @@ canvas#traffic{
     <div class="log-pane">
       <div class="log-head">
         <div class="pane-label"><span>capture log</span><b id="logCount">0</b></div>
-        <p>fragments pulled from the stream. every so often three lines settle into a found haiku.</p>
+        <p>words from several unrelated posts, settled into found haiku. the raw fragments they're spliced from are just noise underneath.</p>
+        <button type="button" class="log-filter-toggle" id="haikuFilterToggle" aria-pressed="true">view all</button>
       </div>
-      <div class="log-body" id="logBody"></div>
+      <div class="log-body haiku-only" id="logBody"></div>
     </div>
   </div>
 
@@ -497,6 +520,15 @@ canvas#traffic{
   var mPps = document.getElementById('mPps');
   var capCount = 0, extCount = 0;
   var MAX_ENTRIES = 40;
+
+  var haikuFilterBtn = document.getElementById('haikuFilterToggle');
+  var haikuOnly = true;
+  haikuFilterBtn.addEventListener('click', function(){
+    haikuOnly = !haikuOnly;
+    logBody.classList.toggle('haiku-only', haikuOnly);
+    haikuFilterBtn.setAttribute('aria-pressed', haikuOnly ? 'true' : 'false');
+    haikuFilterBtn.textContent = haikuOnly ? 'view all' : 'found haiku only';
+  });
 
   function addEntry(kind, content){
     var el = document.createElement('div');

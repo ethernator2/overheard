@@ -41,8 +41,9 @@ Inspired directly by the Carnivore art projects of the early 2000s, and by an ea
 - `deploy/overheard-listener.service` — systemd unit for running `consumer.py` as an always-on background service.
 - `deploy/overheard.vejadu.xyz.conf` — Apache vhost; `DocumentRoot` is `web/` specifically, so the firehose/DB code and `.env` files stay off-limits over HTTP.
 - `web/` — PHP front end reading from the live DB.
-  - `index.php` — the console page: seeds from the last ~20 captures on load (so it's never empty), then polls `api.php` for new ones.
+  - `index.php` — the console page: seeds from recent captures on load (so it's never empty), then polls `api.php` for new ones. Defaults to a "found haiku only" view — a "view all" toggle reveals the raw fragment noise underneath, since haiku are the actual point.
   - `api.php` — JSON polling endpoint (`?since_fragment=N&since_haiku=N`), returns new events + running totals.
+  - `haiku.php` — pages backward through the haiku archive (`?before=<id>&limit=N`), newest-first, powering the "load earlier haiku" control in haiku-only mode.
   - `db.php` — shared PDO helpers.
   - `config.example.php` — copy to `config.php` (gitignored) with real DB credentials.
 
