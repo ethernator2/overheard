@@ -39,6 +39,7 @@ Inspired directly by the Carnivore art projects of the early 2000s, and by an ea
   - `schema.sql` — `fragments`, `haiku`, `consumer_state` tables; includes a suggested retention cron line.
   - `moderation.py` — the one moderation checkpoint in the pipeline; currently a deliberate no-op.
 - `deploy/overheard-listener.service` — systemd unit for running `consumer.py` as an always-on background service.
+- `deploy/overheard.vejadu.xyz.conf` — Apache vhost; `DocumentRoot` is `web/` specifically, so the firehose/DB code and `.env` files stay off-limits over HTTP.
 - `web/` — PHP front end reading from the live DB.
   - `index.php` — the console page: seeds from the last ~20 captures on load (so it's never empty), then polls `api.php` for new ones.
   - `api.php` — JSON polling endpoint (`?since_fragment=N&since_haiku=N`), returns new events + running totals.
@@ -53,7 +54,8 @@ Inspired directly by the Carnivore art projects of the early 2000s, and by an ea
 4. `cp firehose/.env.example firehose/.env` and fill in real DB credentials.
 5. `sudo cp deploy/overheard-listener.service /etc/systemd/system/ && sudo systemctl enable --now overheard-listener`
 6. `journalctl -u overheard-listener -f` to watch it capture.
-7. `cp web/config.example.php web/config.php`, fill in the same DB credentials, point the Apache vhost at `web/` with `index.php` as the document root entry point.
+7. `cp web/config.example.php web/config.php`, fill in the same DB credentials.
+8. Set up the Apache vhost — see `deploy/overheard.vejadu.xyz.conf` (install steps and certbot/TLS instructions are in the file's own comments). Once the DNS A record for `overheard.vejadu.xyz` is pointed at the server's IP, `certbot --apache` picks it up automatically.
 
 Bandwidth stays small on purpose: the consumer subscribes only to `app.bsky.feed.post` creates (not the raw firehose) and, by default, only `en`-language posts — a few KB/s continuous, independent of whether anyone is visiting the site.
 
