@@ -1,0 +1,512 @@
+<title>Signal Intercept</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --bg: #060a09;
+  --panel: #0c1613;
+  --panel-2: #0f1a16;
+  --line: #1c2b25;
+  --phosphor: #6fe6a3;
+  --phosphor-dim: #2f5744;
+  --phosphor-bright: #b8ffd8;
+  --amber: #ffb454;
+  --wire: #4a9aa8;
+  --ink: #cfe9dc;
+  --ink-dim: #9fc6b3;
+  --ink-dim2: #6f8e81;
+}
+
+*{ box-sizing:border-box; }
+
+body{
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.console{
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background:
+    repeating-linear-gradient(180deg, rgba(111,230,163,0.025) 0px, rgba(111,230,163,0.025) 1px, transparent 1px, transparent 3px),
+    radial-gradient(ellipse at 50% 0%, #0b1512 0%, #060a09 70%);
+}
+
+.console::after{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
+  z-index: 50;
+}
+
+/* ---- top bar ---- */
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 16px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(15,26,22,0.9), rgba(12,22,19,0.6));
+  flex-wrap: wrap;
+}
+
+.brand{
+  display:flex;
+  align-items:baseline;
+  gap:12px;
+}
+
+.brand-mark{
+  font-family:'Oswald', sans-serif;
+  font-weight:700;
+  font-size: 1.15rem;
+  letter-spacing: 0.14em;
+  color: var(--phosphor-bright);
+  text-transform: uppercase;
+}
+.brand-mark span{ color: var(--amber); }
+
+.brand-sub{
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim2);
+  text-transform: uppercase;
+}
+
+.status-cluster{
+  display:flex;
+  align-items:center;
+  gap: 22px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim2);
+  text-transform: uppercase;
+}
+
+.status-item{ display:flex; align-items:center; gap:7px; white-space:nowrap; }
+
+.dot{
+  width:7px; height:7px; border-radius:50%;
+  background: var(--phosphor);
+  box-shadow: 0 0 6px var(--phosphor);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce){ .dot{ animation:none; } }
+@keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.35; } }
+
+.metric strong{
+  color: var(--phosphor-bright);
+  font-weight:600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- main grid ---- */
+.main{
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 340px;
+  gap: 1px;
+  background: var(--line);
+  min-height: 560px;
+}
+
+.viz-pane{
+  position:relative;
+  background: var(--bg);
+  padding: 18px 18px 0;
+  display:flex;
+  flex-direction:column;
+  min-height: 0;
+}
+
+.pane-label{
+  font-family:'Oswald', sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim2);
+  margin-bottom: 10px;
+  display:flex;
+  justify-content:space-between;
+}
+.pane-label b{ color: var(--phosphor); font-weight:600; }
+
+canvas#viz{
+  width: 100%;
+  flex: 1;
+  min-height: 340px;
+  display:block;
+  border: 1px solid var(--line);
+  border-bottom:none;
+  background: #050908;
+}
+
+.traffic-strip{
+  height: 64px;
+  border: 1px solid var(--line);
+  border-top:none;
+  background: #050908;
+  margin-bottom: 18px;
+}
+
+/* ---- log pane ---- */
+.log-pane{
+  background: var(--panel);
+  display:flex;
+  flex-direction:column;
+  min-height: 0;
+}
+.log-head{
+  padding: 16px 18px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.log-head .pane-label{ margin-bottom:4px; }
+.log-head p{
+  margin:0;
+  font-size: 0.72rem;
+  color: var(--ink-dim2);
+  line-height:1.5;
+}
+
+.log-body{
+  flex:1;
+  overflow-y: auto;
+  padding: 10px 14px 14px;
+  display:flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+}
+.log-body::-webkit-scrollbar{ width:8px; }
+.log-body::-webkit-scrollbar-thumb{ background: var(--line); border-radius:4px; }
+
+.entry{
+  font-size: 0.78rem;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border-left: 2px solid var(--phosphor-dim);
+  background: rgba(111,230,163,0.03);
+  color: var(--ink-dim);
+  animation: fadein 0.4s ease;
+}
+@keyframes fadein{ from{ opacity:0; transform: translateY(-4px);} to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){ .entry{ animation:none; } }
+
+.entry .tag{
+  display:block;
+  font-family:'Oswald', sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--ink-dim2);
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.entry.haiku{
+  border-left-color: var(--amber);
+  background: rgba(255,180,84,0.06);
+  color: var(--ink);
+}
+.entry.haiku .tag{ color: var(--amber); }
+.entry.haiku .lines{ white-space: pre-line; }
+
+/* ---- bottom ticker ---- */
+.footer{
+  border-top: 1px solid var(--line);
+  padding: 10px 22px;
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 0.68rem;
+  color: var(--ink-dim2);
+  letter-spacing: 0.04em;
+  flex-wrap: wrap;
+  background: rgba(12,22,19,0.6);
+}
+.footer a{ color: var(--phosphor); text-decoration:none; border-bottom: 1px dotted var(--phosphor-dim); }
+.footer a:hover{ color: var(--phosphor-bright); }
+
+@media (max-width: 860px){
+  .main{ grid-template-columns: 1fr; }
+  .log-pane{ min-height: 320px; }
+  canvas#viz{ min-height: 260px; }
+}
+</style>
+
+<div class="console">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">Signal<span>·</span>Intercept</div>
+      <div class="brand-sub">project vejadu — demo mode</div>
+    </div>
+    <div class="status-cluster">
+      <div class="status-item"><span class="dot"></span>simulated feed</div>
+      <div class="status-item metric">packets/s <strong id="mPps">0</strong></div>
+      <div class="status-item metric">captured <strong id="mCap">0</strong></div>
+      <div class="status-item metric">extracted <strong id="mExt">0</strong></div>
+      <div class="status-item">case vjd-2026-0904</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="viz-pane">
+      <div class="pane-label"><span>intercept field</span><b>ch. 04</b></div>
+      <canvas id="viz"></canvas>
+      <canvas id="traffic" class="traffic-strip"></canvas>
+    </div>
+    <div class="log-pane">
+      <div class="log-head">
+        <div class="pane-label"><span>capture log</span><b id="logCount">0</b></div>
+        <p>fragments pulled from the stream. every so often three lines settle into 5-7-5 and get pulled out.</p>
+      </div>
+      <div class="log-body" id="logBody"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div>visualization + haiku extraction layer — running on a scripted sample feed, not a live connection yet</div>
+    <div>next: wire this to the bluesky jetstream firehose · <a href="#" onclick="return false;">vejadu.xyz</a></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------- sample "intercepted" fragments (invented, not real posts) ----------
+  var fragments = [
+    "raining again, ordered soup, forgot the bread",
+    "cat knocked the mug off exactly at 3am",
+    "nobody replies to good morning posts anymore",
+    "traffic on the bridge again, same song on repeat",
+    "watched the kettle boil dry, thought about nothing",
+    "third coffee, the deadline moved, it always moves",
+    "found a spider in the shower, we're roommates now",
+    "the wifi dropped during the important part",
+    "planted tomatoes too early again this year",
+    "missed the bus, watched it turn the corner slow",
+    "left the porch light on for no one in particular",
+    "somebody's dog barking in perfect 4/4 time",
+    "the printer jammed on page one of forty",
+    "streetlight buzzing louder than the traffic",
+    "bought a plant to feel responsible for something"
+  ];
+
+  var haikus = [
+    ["kettle steam curling", "into evening's grey window", "the bus never comes"],
+    ["spider in the drain", "building something patient there", "rain taps the skylight"],
+    ["wifi drops again", "the sentence hangs unfinished", "traffic hums outside"],
+    ["tomatoes too soon", "frost waits in the forecast app", "we plant anyway"],
+    ["porch light left burning", "for no one in particular", "moths keep the vigil"],
+    ["printer jams on one", "forty pages still waiting", "monday holds its breath"]
+  ];
+
+  // ---------- capture log ----------
+  var logBody = document.getElementById('logBody');
+  var logCountEl = document.getElementById('logCount');
+  var mCap = document.getElementById('mCap');
+  var mExt = document.getElementById('mExt');
+  var mPps = document.getElementById('mPps');
+  var capCount = 0, extCount = 0;
+  var MAX_ENTRIES = 40;
+
+  function addEntry(kind, content){
+    var el = document.createElement('div');
+    el.className = 'entry' + (kind === 'haiku' ? ' haiku' : '');
+    var tag = document.createElement('span');
+    tag.className = 'tag';
+    var body = document.createElement('div');
+
+    if(kind === 'haiku'){
+      tag.textContent = 'extract · 5-7-5';
+      body.className = 'lines';
+      body.textContent = content.join('\n');
+      extCount++;
+      mExt.textContent = extCount;
+    } else {
+      tag.textContent = 'fragment · ch.04';
+      body.textContent = content;
+    }
+
+    el.appendChild(tag);
+    el.appendChild(body);
+    logBody.insertBefore(el, logBody.firstChild);
+
+    capCount++;
+    mCap.textContent = capCount;
+    logCountEl.textContent = capCount;
+
+    while(logBody.children.length > MAX_ENTRIES){
+      logBody.removeChild(logBody.lastChild);
+    }
+  }
+
+  // seed a few entries so the page never opens empty
+  addEntry('text', fragments[0]);
+  addEntry('haiku', haikus[0]);
+  addEntry('text', fragments[3]);
+
+  var tickEvents = []; // for pps counter
+
+  function nextCapture(){
+    var isHaiku = Math.random() < 0.22;
+    if(isHaiku){
+      addEntry('haiku', haikus[Math.floor(Math.random()*haikus.length)]);
+      pulse(1.0, '#ffb454');
+    } else {
+      addEntry('text', fragments[Math.floor(Math.random()*fragments.length)]);
+      pulse(0.55, '#6fe6a3');
+    }
+    tickEvents.push(Date.now());
+    scheduleNext();
+  }
+
+  function scheduleNext(){
+    var delay = reduceMotion ? (1800 + Math.random()*1400) : (900 + Math.random()*1600);
+    setTimeout(nextCapture, delay);
+  }
+  scheduleNext();
+
+  setInterval(function(){
+    var now = Date.now();
+    tickEvents = tickEvents.filter(function(t){ return now - t < 5000; });
+    mPps.textContent = (tickEvents.length/5).toFixed(1);
+  }, 500);
+
+  // ---------- visualizer canvas ----------
+  var canvas = document.getElementById('viz');
+  var ctx = canvas.getContext('2d');
+  var pulses = [];
+
+  function pulse(strength, color){
+    pulses.push({ r: 0, max: 40 + strength*160, strength: strength, color: color, born: Date.now() });
+  }
+
+  function resizeCanvas(){
+    var rect = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(rect.width * devicePixelRatio);
+    canvas.height = Math.floor(rect.height * devicePixelRatio);
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  var particles = [];
+  function spawnParticles(cx, cy, n, color){
+    for(var i=0;i<n;i++){
+      var a = Math.random()*Math.PI*2;
+      var speed = 0.4 + Math.random()*1.8;
+      particles.push({
+        x: cx, y: cy,
+        vx: Math.cos(a)*speed, vy: Math.sin(a)*speed,
+        life: 1, decay: 0.004 + Math.random()*0.01,
+        color: color
+      });
+    }
+  }
+
+  var lastSpawn = 0;
+  function drawViz(){
+    var w = canvas.width, h = canvas.height;
+    ctx.fillStyle = 'rgba(5,9,8,0.16)';
+    ctx.fillRect(0,0,w,h);
+
+    var cx = w/2, cy = h/2;
+
+    // faint radial grid
+    ctx.strokeStyle = 'rgba(74,154,168,0.14)';
+    ctx.lineWidth = 1;
+    for(var r=1;r<=4;r++){
+      ctx.beginPath();
+      ctx.arc(cx, cy, (Math.min(w,h)/2) * (r/4) * 0.9, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    // pulses
+    pulses.forEach(function(p){
+      p.r += (p.max/28);
+      var alpha = Math.max(0, 1 - p.r/p.max);
+      ctx.beginPath();
+      ctx.arc(cx, cy, p.r, 0, Math.PI*2);
+      ctx.strokeStyle = p.color;
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.lineWidth = 2 * devicePixelRatio;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      if(alpha <= 0 && Math.random() < 0.3){
+        spawnParticles(cx, cy, Math.floor(6+p.strength*14), p.color);
+      }
+    });
+    pulses = pulses.filter(function(p){ return p.r < p.max*1.3; });
+
+    // ambient trickle if quiet
+    if(!reduceMotion && Date.now() - lastSpawn > 500){
+      spawnParticles(cx + (Math.random()-0.5)*40, cy + (Math.random()-0.5)*40, 1, 'rgba(111,230,163,0.6)');
+      lastSpawn = Date.now();
+    }
+
+    // particles
+    particles.forEach(function(p){
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.995; p.vy *= 0.995;
+      p.life -= p.decay;
+      if(p.life <= 0) return;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 1.6*devicePixelRatio*p.life+0.6, 0, Math.PI*2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+    particles = particles.filter(function(p){ return p.life > 0 && p.x > -50 && p.x < w+50 && p.y > -50 && p.y < h+50; });
+
+    requestAnimationFrame(drawViz);
+  }
+  requestAnimationFrame(drawViz);
+
+  // ---------- traffic strip ----------
+  var tcanvas = document.getElementById('traffic');
+  var tctx = tcanvas.getContext('2d');
+  var bars = [];
+  var BAR_COUNT = 90;
+  for(var i=0;i<BAR_COUNT;i++) bars.push(0.08 + Math.random()*0.15);
+
+  function resizeTraffic(){
+    var rect = tcanvas.getBoundingClientRect();
+    tcanvas.width = Math.floor(rect.width * devicePixelRatio);
+    tcanvas.height = Math.floor(rect.height * devicePixelRatio);
+  }
+  window.addEventListener('resize', resizeTraffic);
+  resizeTraffic();
+
+  function stepTraffic(){
+    bars.shift();
+    var base = 0.06 + Math.random()*0.12;
+    var boost = (Date.now() - lastSpawn < 300) ? 0.5 : 0;
+    bars.push(Math.min(1, base + boost + Math.random()*0.25));
+  }
+  setInterval(stepTraffic, reduceMotion ? 900 : 220);
+
+  function drawTraffic(){
+    var w = tcanvas.width, h = tcanvas.height;
+    tctx.fillStyle = '#050908';
+    tctx.fillRect(0,0,w,h);
+    var bw = w / BAR_COUNT;
+    for(var i=0;i<bars.length;i++){
+      var bh = bars[i]*h*0.9;
+      var amber = bars[i] > 0.55;
+      tctx.fillStyle = amber ? 'rgba(255,180,84,0.85)' : 'rgba(111,230,163,0.65)';
+      tctx.fillRect(i*bw+1, h-bh, Math.max(1,bw-2), bh);
+    }
+    requestAnimationFrame(drawTraffic);
+  }
+  requestAnimationFrame(drawTraffic);
+
+})();
+</script>
