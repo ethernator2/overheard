@@ -1,0 +1,25 @@
+[Unit]
+Description=overheard - Bluesky firehose intercept + haiku extraction
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=overheard
+Group=overheard
+WorkingDirectory=/opt/overheard
+EnvironmentFile=/opt/overheard/firehose/.env
+ExecStart=/opt/overheard/.venv/bin/python3 /opt/overheard/firehose/consumer.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Nothing here needs elevated privileges or network listen sockets.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/overheard
+
+[Install]
+WantedBy=multi-user.target

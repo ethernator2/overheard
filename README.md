@@ -19,19 +19,35 @@ Inspired directly by the Carnivore art projects of the early 2000s, and by an ea
 - [x] Visual design direction settled: CRT/phosphor terminal console aesthetic (see `visualizer-demo.html`), validated against the author's own first-hand experience of period data-center monitoring tools.
 - [x] Domain/name decided: `overheard.vejadu.xyz`
 - [x] Haiku extraction engine — real syllable counting (pyphen-based) and multi-author word splicing, see `haiku_engine/`
-- [x] Sonification layer — ambient drone tied to traffic volume, per-capture tones from a text hash, haiku triggers a 3-note arpeggio (see `visualizer-demo.html`)
-- [ ] Real Jetstream firehose consumer — the visualizer/haiku engine still run on a scripted sample feed, not live data
-- [ ] MariaDB schema for captured fragments/haiku
-- [ ] PHP front end serving the capture log + visualizer from live data
+- [x] Sonification layer — ambient drone tied to traffic volume, per-capture tones from a text hash, haiku triggers a 3-note arpeggio (see `visualizer-demo.html`, previewable offline via `sonification/render_demo.py`)
+- [x] Real Jetstream firehose consumer — always-on, filtered to `app.bsky.feed.post` creates (+ optional language filter), writing to MariaDB (see `firehose/`). Not yet deployed to the server.
+- [ ] PHP front end serving the capture log + visualizer from live DB data (currently the visualizer still runs on a scripted sample feed)
 - [ ] Server + DNS: Apache vhost on the Debian box, A record for `overheard.vejadu.xyz`
 
 ## Files
 
-- `visualizer-demo.html` — the console: visualizer, capture log, and sonification layer, running on a scripted sample feed (no live connection yet).
+- `visualizer-demo.html` — the console: visualizer, capture log, and sonification layer, running on a scripted sample feed (not yet wired to the live DB).
 - `haiku_engine/` — Python haiku extraction engine.
   - `syllables.py` — syllable counting (pyphen-backed, with a no-dependency heuristic fallback).
   - `assembler.py` — `HaikuAssembler`, which splices words from a continuous multi-post stream into 5-7-5 haiku.
-  - `demo.py` — feeds a sample multi-author stream through the assembler; `python3 demo.py` to run. Needs `pyphen` (see `requirements.txt`; a `.venv` is set up locally).
+  - `demo.py` — feeds a sample multi-author stream through the assembler; `python3 demo.py` to run.
+- `sonification/render_demo.py` — offline WAV renderer mirroring the browser's Web Audio sonification logic, for previewing without opening a browser.
+- `firehose/` — the always-on listener.
+  - `consumer.py` — connects to Jetstream, feeds post text into a shared `HaikuAssembler`, writes fragments/haiku to MariaDB. Resumes from its last cursor on restart.
+  - `config.py` — reads DB/Jetstream settings from the environment; see `.env.example`.
+  - `schema.sql` — `fragments`, `haiku`, `consumer_state` tables; includes a suggested retention cron line.
+- `deploy/overheard-listener.service` — systemd unit for running `consumer.py` as an always-on background service.
+
+## Deploying the listener
+
+1. `mysql -u root -p -e "CREATE DATABASE overheard CHARACTER SET utf8mb4; CREATE USER 'overheard'@'localhost' IDENTIFIED BY '...'; GRANT ALL ON overheard.* TO 'overheard'@'localhost';"`
+2. `mysql -u overheard -p overheard < firehose/schema.sql`
+3. Copy the repo to `/opt/overheard` on the server, `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`.
+4. `cp firehose/.env.example firehose/.env` and fill in real DB credentials.
+5. `sudo cp deploy/overheard-listener.service /etc/systemd/system/ && sudo systemctl enable --now overheard-listener`
+6. `journalctl -u overheard-listener -f` to watch it capture.
+
+Bandwidth stays small on purpose: the consumer subscribes only to `app.bsky.feed.post` creates (not the raw firehose) and, by default, only `en`-language posts — a few KB/s continuous, independent of whether anyone is visiting the site.
 
 ## Notes on scope
 
