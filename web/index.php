@@ -509,10 +509,22 @@ var CURSOR = { fragment: <?= (int) $sinceFragment ?>, haiku: <?= (int) $sinceHai
   function renderEvent(evt, isLive){
     if(evt.kind === 'haiku'){
       addEntry('haiku', evt.lines);
-      if(isLive){ pulse(1.0, '#ffb454'); Audio_.haikuArpeggio(evt.lines); }
+      if(isLive){
+        // Bigger bursts for haiku spliced from more distinct posts —
+        // the visual payoff should track how many strangers' words
+        // actually went into it, not just "haiku happened".
+        var sourceCount = (evt.sources && evt.sources.length) || 1;
+        var strength = 0.7 + Math.min(0.5, (sourceCount - 1) * 0.18);
+        pulse(strength, '#ffb454');
+        Audio_.haikuArpeggio(evt.lines);
+      }
     } else {
       addEntry('text', evt.text);
-      if(isLive){ pulse(0.55, '#6fe6a3'); Audio_.captureBlip(evt.text); }
+      if(isLive){
+        var len = (evt.text || '').length;
+        pulse(0.22 + Math.min(0.4, len / 260), '#6fe6a3');
+        Audio_.captureBlip(evt.text);
+      }
     }
     if(isLive) tickEvents.push(Date.now());
   }
@@ -555,7 +567,20 @@ var CURSOR = { fragment: <?= (int) $sinceFragment ?>, haiku: <?= (int) $sinceHai
   var pulses = [];
 
   function pulse(strength, color){
-    pulses.push({ r: 0, max: 40 + strength*160, strength: strength, color: color, born: Date.now() });
+    // Scale against the actual field radius (matches the ring
+    // spacing below) so a strong pulse can reach — or blow past —
+    // the outer ring, rather than being capped at a fixed pixel
+    // budget regardless of canvas size.
+    var fieldR = Math.min(canvas.width, canvas.height) / 2;
+    var max = fieldR * (0.32 + strength * 0.78);
+    pulses.push({ r: 0, max: max, strength: strength, color: color, born: Date.now() });
+
+    // The shockwave itself (the expanding ring, drawn in drawViz) is
+    // the slow payoff; the burst below is the immediate one — sized
+    // and sped by the same strength so a big haiku genuinely reads as
+    // an explosion, not just a faster fade.
+    var cx = canvas.width / 2, cy = canvas.height / 2;
+    spawnParticles(cx, cy, Math.floor(8 + strength * 36), color, 0.6 + strength * 2.4);
   }
 
   function resizeCanvas(){
@@ -567,14 +592,15 @@ var CURSOR = { fragment: <?= (int) $sinceFragment ?>, haiku: <?= (int) $sinceHai
   resizeCanvas();
 
   var particles = [];
-  function spawnParticles(cx, cy, n, color){
+  function spawnParticles(cx, cy, n, color, speedScale){
+    speedScale = speedScale || 1;
     for(var i=0;i<n;i++){
       var a = Math.random()*Math.PI*2;
-      var speed = 0.4 + Math.random()*1.8;
+      var speed = (0.4 + Math.random()*1.8) * speedScale;
       particles.push({
         x: cx, y: cy,
         vx: Math.cos(a)*speed, vy: Math.sin(a)*speed,
-        life: 1, decay: 0.004 + Math.random()*0.01,
+        life: 1, decay: 0.003 + Math.random()*0.008,
         color: color
       });
     }
@@ -606,9 +632,6 @@ var CURSOR = { fragment: <?= (int) $sinceFragment ?>, haiku: <?= (int) $sinceHai
       ctx.lineWidth = 2 * devicePixelRatio;
       ctx.stroke();
       ctx.globalAlpha = 1;
-      if(alpha <= 0 && Math.random() < 0.3){
-        spawnParticles(cx, cy, Math.floor(6+p.strength*14), p.color);
-      }
     });
     pulses = pulses.filter(function(p){ return p.r < p.max*1.3; });
 
