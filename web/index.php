@@ -187,22 +187,42 @@ body{
 }
 .pane-label b{ color: var(--phosphor); font-weight:600; }
 
-canvas#viz{
-  width: 100%;
+/* Canvas elements carry an intrinsic size from their width/height
+   attributes (set in JS to real pixel-buffer dimensions), and some
+   browsers let that leak into flex/grid sizing as an aspect ratio even
+   with explicit CSS width/height set. Wrapping in a plain positioned
+   box and absolutely filling it removes the canvas from flex/grid
+   sizing entirely, so its own attributes can't influence layout. */
+.viz-canvas-wrap{
+  position: relative;
   flex: 1;
   min-height: 340px;
+}
+canvas#viz{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   display:block;
   border: 1px solid var(--line);
   border-bottom:none;
   background: #050908;
 }
 
-.traffic-strip{
+.traffic-wrap{
+  position: relative;
   height: 64px;
+  margin-bottom: 18px;
+}
+canvas#traffic{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
   border: 1px solid var(--line);
   border-top:none;
   background: #050908;
-  margin-bottom: 18px;
 }
 
 .log-pane{
@@ -271,7 +291,7 @@ canvas#viz{
 @media (max-width: 860px){
   .main{ grid-template-columns: 1fr; }
   .log-pane{ min-height: 320px; }
-  canvas#viz{ min-height: 260px; }
+  .viz-canvas-wrap{ min-height: 260px; }
 }
 </style>
 </head>
@@ -297,8 +317,8 @@ canvas#viz{
   <div class="main">
     <div class="viz-pane">
       <div class="pane-label"><span>intercept field</span><b>ch. 04</b></div>
-      <canvas id="viz"></canvas>
-      <canvas id="traffic" class="traffic-strip"></canvas>
+      <div class="viz-canvas-wrap"><canvas id="viz"></canvas></div>
+      <div class="traffic-wrap"><canvas id="traffic"></canvas></div>
     </div>
     <div class="log-pane">
       <div class="log-head">
@@ -523,7 +543,7 @@ var CURSOR = { fragment: <?= (int) $sinceFragment ?>, haiku: <?= (int) $sinceHai
   }
 
   function resizeCanvas(){
-    var rect = canvas.getBoundingClientRect();
+    var rect = canvas.parentElement.getBoundingClientRect();
     canvas.width = Math.floor(rect.width * devicePixelRatio);
     canvas.height = Math.floor(rect.height * devicePixelRatio);
   }
@@ -607,7 +627,7 @@ var CURSOR = { fragment: <?= (int) $sinceFragment ?>, haiku: <?= (int) $sinceHai
   for(var i=0;i<BAR_COUNT;i++) bars.push(0.08);
 
   function resizeTraffic(){
-    var rect = tcanvas.getBoundingClientRect();
+    var rect = tcanvas.parentElement.getBoundingClientRect();
     tcanvas.width = Math.floor(rect.width * devicePixelRatio);
     tcanvas.height = Math.floor(rect.height * devicePixelRatio);
   }
