@@ -65,7 +65,8 @@ body{
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background:
     repeating-linear-gradient(180deg, rgba(111,230,163,0.025) 0px, rgba(111,230,163,0.025) 1px, transparent 1px, transparent 3px),
     radial-gradient(ellipse at 50% 0%, #0b1512 0%, #060a09 70%);
@@ -157,13 +158,21 @@ body{
 }
 @media (prefers-reduced-motion: reduce){ .audio-toggle[aria-pressed="true"] .dot{ animation:none; } }
 
+/* This is meant to hold at exactly one screen — the log scrolls inside
+   its own panel below, not the page. Every level from .console down
+   sets an explicit/min-height:0 + overflow so no descendant's content
+   volume (e.g. a full capture log) can grow the row past what's
+   actually available; without this chain, some browsers let intrinsic
+   content sizing win over flex/grid's own sizing intent. */
 .main{
   flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0,1fr) 340px;
+  grid-template-rows: minmax(0,1fr);
   gap: 1px;
   background: var(--line);
-  min-height: 560px;
+  overflow: hidden;
 }
 
 .viz-pane{
@@ -173,6 +182,7 @@ body{
   display:flex;
   flex-direction:column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .pane-label{
@@ -230,6 +240,7 @@ canvas#traffic{
   display:flex;
   flex-direction:column;
   min-height: 0;
+  overflow: hidden;
 }
 .log-head{ padding: 16px 18px 10px; border-bottom: 1px solid var(--line); }
 .log-head .pane-label{ margin-bottom:4px; }
@@ -289,8 +300,13 @@ canvas#traffic{
 .footer a:hover{ color: var(--phosphor-bright); }
 
 @media (max-width: 860px){
-  .main{ grid-template-columns: 1fr; }
-  .log-pane{ min-height: 320px; }
+  /* Below this width the two panes stack, so there's no shared row
+     to keep bounded — let the page scroll normally instead, each
+     section sized to its own content with a sensible floor. */
+  .console{ height: auto; min-height: 100vh; overflow: visible; }
+  .main{ grid-template-columns: 1fr; grid-template-rows: none; overflow: visible; }
+  .viz-pane{ overflow: visible; }
+  .log-pane{ min-height: 320px; overflow: visible; }
   .viz-canvas-wrap{ min-height: 260px; }
 }
 </style>
