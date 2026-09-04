@@ -15,6 +15,7 @@ Deploy: see ../deploy/overheard-listener.service
 import asyncio
 import json
 import logging
+import random
 import sys
 from pathlib import Path
 
@@ -96,11 +97,16 @@ def extract_post(msg):
         return None
 
     if config.LANG_FILTER:
+        # Posts with no langs tag at all are common on Bluesky and are not
+        # safe to assume are English — drop them too, not just mismatches.
         langs = record.get("langs") or []
-        if langs and config.LANG_FILTER not in langs:
+        if config.LANG_FILTER not in langs:
             return None
 
     if not moderation.is_allowed(text):
+        return None
+
+    if config.SAMPLE_RATE < 1.0 and random.random() > config.SAMPLE_RATE:
         return None
 
     did = msg.get("did", "")
@@ -132,9 +138,10 @@ async def run():
                     if post:
                         uri, did, text = post
                         store_fragment(conn, uri, did, text)
-                        for haiku in assembler.feed_post(text, source_id=uri):
-                            store_haiku(conn, haiku)
-                            log.info("haiku: %s", " / ".join(haiku.text))
+                        if random.random() <= config.HAIKU_FEED_RATE:
+                            for haiku in assembler.feed_post(text, source_id=uri):
+                                store_haiku(conn, haiku)
+                                log.info("haiku: %s", " / ".join(haiku.text))
 
                     if cursor:
                         save_cursor(conn, cursor)

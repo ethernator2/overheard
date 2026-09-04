@@ -17,3 +17,16 @@ JETSTREAM_URL = os.environ.get(
 # Restrict to one language to keep both bandwidth and haiku quality sane.
 # Empty string disables the filter (takes every language).
 LANG_FILTER = os.environ.get("OVERHEARD_LANG_FILTER", "en")
+
+# Fraction of matching posts kept for the capture log at all, after the
+# language/moderation filters — the raw firehose is dense enough that
+# even a small fraction is plenty. 0.05 means roughly 1 in 20.
+SAMPLE_RATE = float(os.environ.get("OVERHEARD_SAMPLE_RATE", "0.05"))
+
+# Of the fragments kept above, the fraction whose words are actually fed
+# into the haiku assembler. Separate from SAMPLE_RATE on purpose: a
+# continuously-fed assembler completes a 5-7-5 window almost constantly
+# (measured ~80% of kept fragments during testing), which reads as noise,
+# not "every so often". Keeping the capture log lively while starving the
+# assembler is what makes haiku feel like a find rather than a given.
+HAIKU_FEED_RATE = float(os.environ.get("OVERHEARD_HAIKU_FEED_RATE", "0.12"))

@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 *.env
 firehose/.env
+web/config.php

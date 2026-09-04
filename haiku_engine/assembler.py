@@ -13,7 +13,15 @@ from syllables import syllable_count
 
 TARGET = (5, 7, 5)
 
-_URL = re.compile(r"https?://\S+")
+# Matches full URLs (https://...), bare "www." domains, and bare
+# domain-plus-path text (e.g. "macgamestore.com/product") — casual posts
+# link out without a scheme far more often than not.
+_URL = re.compile(
+    r"https?://\S+"
+    r"|\bwww\.\S+"
+    r"|\b[a-zA-Z0-9-]+\.(?:com|org|net|io|co|gg|app|xyz|dev|uk|edu|gov|shop|link)\b\S*",
+    re.IGNORECASE,
+)
 _MENTION = re.compile(r"@[\w.-]+")
 _WORD = re.compile(r"[A-Za-z']+")
 

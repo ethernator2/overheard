@@ -20,9 +20,9 @@ Inspired directly by the Carnivore art projects of the early 2000s, and by an ea
 - [x] Domain/name decided: `overheard.vejadu.xyz`
 - [x] Haiku extraction engine — real syllable counting (pyphen-based) and multi-author word splicing, see `haiku_engine/`
 - [x] Sonification layer — ambient drone tied to traffic volume, per-capture tones from a text hash, haiku triggers a 3-note arpeggio (see `visualizer-demo.html`, previewable offline via `sonification/render_demo.py`)
-- [x] Real Jetstream firehose consumer — always-on, filtered to `app.bsky.feed.post` creates (+ optional language filter), writing to MariaDB (see `firehose/`). Not yet deployed to the server.
+- [x] Real Jetstream firehose consumer — always-on, filtered to `app.bsky.feed.post` creates and language, writing to MariaDB (see `firehose/`). Live-tested end to end locally (real Jetstream → MariaDB → PHP page); not yet deployed to the server.
 - [ ] Moderation — deliberately stubbed as a no-op (`firehose/moderation.py`) for now, so the piece can be seen running against real, unfiltered traffic before deciding what (if anything) to filter.
-- [ ] PHP front end serving the capture log + visualizer from live DB data (currently the visualizer still runs on a scripted sample feed)
+- [x] PHP front end (`web/`) reading the capture log + visualizer from live MariaDB data via polling — `visualizer-demo.html` remains as the standalone scripted-feed version for reference/teaser purposes.
 - [ ] Server + DNS: Apache vhost on the Debian box, A record for `overheard.vejadu.xyz`
 
 ## Files
@@ -39,6 +39,11 @@ Inspired directly by the Carnivore art projects of the early 2000s, and by an ea
   - `schema.sql` — `fragments`, `haiku`, `consumer_state` tables; includes a suggested retention cron line.
   - `moderation.py` — the one moderation checkpoint in the pipeline; currently a deliberate no-op.
 - `deploy/overheard-listener.service` — systemd unit for running `consumer.py` as an always-on background service.
+- `web/` — PHP front end reading from the live DB.
+  - `index.php` — the console page: seeds from the last ~20 captures on load (so it's never empty), then polls `api.php` for new ones.
+  - `api.php` — JSON polling endpoint (`?since_fragment=N&since_haiku=N`), returns new events + running totals.
+  - `db.php` — shared PDO helpers.
+  - `config.example.php` — copy to `config.php` (gitignored) with real DB credentials.
 
 ## Deploying the listener
 
@@ -48,8 +53,18 @@ Inspired directly by the Carnivore art projects of the early 2000s, and by an ea
 4. `cp firehose/.env.example firehose/.env` and fill in real DB credentials.
 5. `sudo cp deploy/overheard-listener.service /etc/systemd/system/ && sudo systemctl enable --now overheard-listener`
 6. `journalctl -u overheard-listener -f` to watch it capture.
+7. `cp web/config.example.php web/config.php`, fill in the same DB credentials, point the Apache vhost at `web/` with `index.php` as the document root entry point.
 
 Bandwidth stays small on purpose: the consumer subscribes only to `app.bsky.feed.post` creates (not the raw firehose) and, by default, only `en`-language posts — a few KB/s continuous, independent of whether anyone is visiting the site.
+
+## Tuning the pace
+
+Two independent knobs in `firehose/.env` control how busy the piece feels, both found through local live testing against the real firehose:
+
+- `OVERHEARD_SAMPLE_RATE` (default `0.05`) — fraction of matching posts kept for the capture log at all. The unsampled `en`-filtered firehose runs at dozens of posts/second, far too dense for a capture log meant to feel like occasional interception.
+- `OVERHEARD_HAIKU_FEED_RATE` (default `0.12`) — of the fragments kept above, the fraction whose words are fed into the haiku assembler. This has to be much lower than it might seem: a continuously-fed assembler completes a 5-7-5 window on ~80% of what it's given (any long enough word stream keeps hitting a 17-syllable window), so without this second knob "occasional" haiku become closer to constant.
+
+Local testing (real Jetstream, `en` filter, both defaults above) produced roughly 1 fragment every 1-2 seconds and 1 haiku every 20-30 seconds — a reasonable starting pace, worth re-tuning once it's live and you can watch it for longer.
 
 ## Notes on scope
 
