@@ -73,6 +73,13 @@ Inspired directly by the Carnivore art projects of the early 2000s, and by an ea
    ```
 3. **PHP execution is off by default on a fresh Virtualmin sub-server** — it serves `.php` files as plain text until you explicitly enable it. In Virtualmin: *this domain → Server Configuration → PHP Configuration*, set an execution mode (PHP-FPM recommended) and version (8.2). This was the actual cause of "the page just shows raw PHP source" during setup — not a symlink or file-ownership issue, despite how it initially looked.
 
+**A Virtualmin update can silently undo both of the above.** Hit this once (2026-09-12): a Virtualmin update re-ran its domain verification/repair step, which recreated `public_html` as a real root-owned directory with Virtualmin's default `index.html`, clobbering the symlink from step 2. Site files under `/opt/overheard` are untouched when this happens — it's purely the docroot pointer. Fix is the same as the original setup:
+```bash
+rm -rf /home/<user>/domains/overheard.vejadu.xyz/public_html   # just Virtualmin's default page, safe to remove
+ln -s /opt/overheard/web /home/<user>/domains/overheard.vejadu.xyz/public_html
+```
+Check PHP execution mode (step 3) didn't also get reset while you're at it — same symptom (raw PHP source instead of the rendered page) has two different causes now.
+
 Bandwidth stays small on purpose: the consumer subscribes only to `app.bsky.feed.post` creates (not the raw firehose) and, by default, only `en`-language posts — a few KB/s continuous, independent of whether anyone is visiting the site.
 
 ## Tuning the pace
