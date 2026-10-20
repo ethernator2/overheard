@@ -388,7 +388,7 @@ canvas#traffic{
   </div>
 
   <div class="footer">
-    <div>reading live from the intercept archive — moderation is currently off by design, see <a href="/about.php">about</a></div>
+    <div>reading live from the intercept archive — moderation is currently off by design, see <a href="https://medium.com/@clararo55/i-built-a-wiretap-that-looks-for-haiku-5e0d0184d638">about</a></div>
     <div>overheard.vejadu.xyz</div>
   </div>
 </div>
