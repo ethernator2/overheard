@@ -17,6 +17,7 @@ import json
 import logging
 import random
 import sys
+import time
 from pathlib import Path
 
 import pymysql
@@ -118,6 +119,7 @@ async def run():
     conn = db_connect()
     assembler = HaikuAssembler()
     cursor = load_cursor(conn)
+    cursor_saved_at = 0.0
     backoff = 2
 
     while True:
@@ -143,8 +145,10 @@ async def run():
                                 store_haiku(conn, haiku)
                                 log.info("haiku: %s", " / ".join(haiku.text))
 
-                    if cursor:
+                    now = time.monotonic()
+                    if cursor and now - cursor_saved_at >= config.CURSOR_SAVE_SECS:
                         save_cursor(conn, cursor)
+                        cursor_saved_at = now
         except (websockets.exceptions.WebSocketException, OSError) as exc:
             log.warning("connection lost (%s), retrying in %ss", exc, backoff)
             await asyncio.sleep(backoff)

@@ -30,3 +30,10 @@ SAMPLE_RATE = float(os.environ.get("OVERHEARD_SAMPLE_RATE", "0.05"))
 # not "every so often". Keeping the capture log lively while starving the
 # assembler is what makes haiku feel like a find rather than a given.
 HAIKU_FEED_RATE = float(os.environ.get("OVERHEARD_HAIKU_FEED_RATE", "0.12"))
+
+# How often the Jetstream cursor is persisted, in seconds. Saving it on
+# every message meant ~60 committed transactions a second (each one an
+# fsync) for a value only read on restart — ~7 GB/day of disk writes.
+# A restart now replays at most this many seconds of firehose, which is
+# harmless: fragments are INSERT IGNORE on their unique source_uri.
+CURSOR_SAVE_SECS = float(os.environ.get("OVERHEARD_CURSOR_SAVE_SECS", "5"))
